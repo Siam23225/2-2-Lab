@@ -1,0 +1,160 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <unordered_map>
+#include <stack>
+#include <algorithm>
+
+using namespace std;
+
+// Structure to represent Three Address Code (TAC)
+struct TAC {
+    string result;
+    string op;
+    string arg1;
+    string arg2;
+};
+
+// Function to generate a new temporary variable
+string newTemp(int &tempCount) {
+    return "t" + to_string(tempCount++);
+}
+
+// Function to get the precedence of operators
+int getPrecedence(char op) {
+    if (op == '+' || op == '-') return 1;
+    if (op == '*' || op == '/') return 2;
+    return 0;
+}
+
+// Function to check if a character is an operator
+bool isOperator(char ch) {
+    return ch == '+' || ch == '-' || ch == '*' || ch == '/';
+}
+
+// Function to generate TAC using a modified Shunting Yard algorithm for precedence
+vector<TAC> generateTAC(const string &expression) {
+    vector<TAC> tacList;
+    int tempCount = 1;
+    stack<string> operands;   // Stack for operands
+    stack<char> operators;    // Stack for operators
+
+    // Read through the expression to generate TAC
+    for (size_t i = 0; i < expression.length(); i++) {
+        char ch = expression[i];
+
+        // Skip whitespaces
+        if (isspace(ch)) continue;
+
+        if (isalnum(ch)) { // Operand (variable or number)
+            string operand(1, ch);
+            operands.push(operand);
+        } else if (isOperator(ch)) { // Operator
+            while (!operators.empty() && getPrecedence(operators.top()) >= getPrecedence(ch)) {
+                // Pop the operator with higher or equal precedence
+                string arg2 = operands.top(); operands.pop();
+                string arg1 = operands.top(); operands.pop();
+                char op = operators.top(); operators.pop();
+
+                // Generate a new temporary variable
+                string result = newTemp(tempCount);
+
+                // Create TAC entry
+                tacList.push_back({result, string(1, op), arg1, arg2});
+
+                // Push the result back as an operand
+                operands.push(result);
+            }
+            operators.push(ch);
+        }
+    }
+
+    // Process remaining operators in the stack
+    while (!operators.empty()) {
+        string arg2 = operands.top(); operands.pop();
+        string arg1 = operands.top(); operands.pop();
+        char op = operators.top(); operators.pop();
+
+        // Generate a new temporary variable
+        string result = newTemp(tempCount);
+
+        // Create TAC entry
+        tacList.push_back({result, string(1, op), arg1, arg2});
+
+        // Push the result back as an operand
+        operands.push(result);
+    }
+
+    // The final result should be the only operand left in the stack
+    if (!operands.empty()) {
+        tacList.push_back({"w", "=", operands.top(), ""});
+    }
+
+    return tacList;
+}
+
+// Display TAC
+void printTAC(const vector<TAC> &tacList) {
+    cout << "Generated Three Address Code (TAC):" << endl;
+    for (const auto &tac : tacList) {
+        if (tac.op == "=")
+            cout << tac.result << " = " << tac.arg1 << endl;
+        else
+            cout << tac.result << " = " << tac.arg1 << " " << tac.op << " " << tac.arg2 << endl;
+    }
+    cout << endl;
+}
+
+// Function to translate TAC to machine code
+vector<string> generateMachineCode(const vector<TAC> &tacList) {
+    vector<string> machineCode;
+    int regCounter = 1;
+
+    for (const auto &tac : tacList) {
+        string reg = "R" + to_string(regCounter++);  // Allocate a new register for each TAC result
+
+        if (tac.op == "+") {
+            machineCode.push_back("MOV " + reg + ", " + tac.arg1);
+            machineCode.push_back("ADD " + reg + ", " + tac.arg2);
+        } else if (tac.op == "-") {
+            machineCode.push_back("MOV " + reg + ", " + tac.arg1);
+            machineCode.push_back("SUB " + reg + ", " + tac.arg2);
+        } else if (tac.op == "*") {
+            machineCode.push_back("MOV " + reg + ", " + tac.arg1);
+            machineCode.push_back("MUL " + reg + ", " + tac.arg2);
+        } else if (tac.op == "/") {
+            machineCode.push_back("MOV " + reg + ", " + tac.arg1);
+            machineCode.push_back("DIV " + reg + ", " + tac.arg2);
+        } else if (tac.op == "=") {
+            machineCode.push_back("MOV " + tac.result + ", " + tac.arg1);
+        }
+    }
+
+    return machineCode;
+}
+
+// Display machine code
+void printMachineCode(const vector<string> &machineCode) {
+    cout << "Generated Machine Code:" << endl;
+    for (const auto &code : machineCode) {
+        cout << code << endl;
+    }
+}
+
+int main() {
+    string expression;
+
+    cout << "Enter an arithmetic expression (e.g., w = a - b * c / d + e - f): ";
+    getline(cin, expression);
+
+    // Generate Three Address Code (TAC)
+    vector<TAC> tacList = generateTAC(expression);
+    printTAC(tacList);
+
+    // Convert TAC to machine code
+    vector<string> machineCode = generateMachineCode(tacList);
+    printMachineCode(machineCode);
+
+    return 0;
+}
